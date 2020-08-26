@@ -1,0 +1,147 @@
+---
+title: "Social Network Project"
+author: "Charlotte Li"
+date: "8/5/2020"
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Introduction 
+  
+  Social Network data analysis is now an increasingly popular subject. With the emergency and fast development of various social media platforms, human connectivity and interaction are reaching a new level. People can connect with each via different means, not only between friends, but also friends of friends, and sometimes event strangers or celeberties, whom we don't normally interact with. Besides such informational social connectivity, network analysis is also essential in medical field. The current Covid-19 Pandemic proved the importance of social network data analysis. The surge of the network data reflects technological, economical, social, political and biological growth. 
+  
+```{r}
+## Load packages
+library("igraph")
+```
+
+## Data Overview
+  Using the github link provided in class, I choose the Game of Throne Dataset. As a fan of the series, I know how complicated the social network is among all the characters. It is interesting to apply social network analysis knowledge on this fantastic story line.
+  The nodes csv contains 107 different characters, and the edges csv contains 353 edges. All the links are weighted relationships between those characters, which were calculated based on how many times two characters' names appeared within 15 words of one another in the novel.Based on the book/TV show settings, all the characters were scattered geographically across the land, and each area has a dominant or ruling family or noble household. 
+
+```{r}
+setwd("~/Desktop/Social Network/project/datasets")
+got_nodes<-read.csv("got-nodes.csv")
+got_links<-read.csv("got-edges.csv")
+
+## Examine the data
+head(got_nodes)
+head(got_links)
+```
+# Analysis
+
+## Network 
+  First, I converted nodes and edges to form network.
+```{r}
+got_net <- graph_from_data_frame(d=got_links, vertices=got_nodes, directed=T) 
+
+# Examine the resulting object:
+class(got_net)
+got_net 
+
+# We can access the nodes, edges, and their attributes:
+head(E(got_net)) #edge
+head(V(got_net)) #vertex
+```
+
+## Network Graph
+  Since there are many characters and links, it is better to simplify the graph by removing the multiple connections and self loops. 
+```{r figl,fig.align="center",fig.asp=1}
+got_net <- simplify(got_net, remove.multiple = T, remove.loops = T) 
+
+plot(got_net, edge.arrow.size=0.05,vertex.color="lightskyblue", vertex.frame.color="#777777",vertex.frame.color="white",vertex.label.color="black",
+     vertex.label.cex=0.8,vertex.size=7,vertex.label.font=4)
+```
+The plot itself is not very helpful at demonstrating the network relations. There are many nodes and connections. Therefore, other means of measuring social network is implemented. 
+## Layouts 
+Since the plot above is still very complicated, different layout structures might help to demostrate the network more clearly. 
+```{r,fig.align="center"}
+par(mfrow=c(1,2))
+# random layout
+plot(got_net, edge.arrow.size=0.05,vertex.color="lightskyblue", vertex.frame.color="#777777",vertex.frame.color="white",vertex.label.color="black",
+     vertex.label.cex=0.8,vertex.size=7,vertex.label.font=4,layout=layout_randomly(got_net))
+## sphere layout
+plot(got_net, edge.arrow.size=0.05,vertex.color="lightskyblue", vertex.frame.color="#777777",vertex.frame.color="white",vertex.label.color="black",
+     vertex.label.cex=0.8,vertex.size=7,vertex.label.font=4,layout=layout_on_sphere(got_net))
+```
+From comparing original plot and different layouts, it seems sphere layout fits this network better. However, the network is still too complicated. 
+
+## Cut off by weight 
+ Since Weight is calculated based on how many times two characters' names appeared within 15 words of one another in the novel, most of the characters were mentioned quite often, according to the historgram below. On average, they were mentioned 12 times; therefore, we can try to further simplify the graph by deleting edges with few weights. 
+```{r}
+hist(degree(got_net))
+```
+ 
+```{r}
+cut.off<-mean(got_links$Weight)
+net.sp<-delete_edges(got_net, E(got_net)[Weight<cut.off])
+plot(net.sp,edge.arrow.size=0.05,vertex.color="lightskyblue",,vertex.label.color="black",
+     #vertex.label.cex=0.8,vertex.size=10,vertex.label.font=4,layout=layout_with_kk)
+```
+
+  From the plot above, it is clear that certain people are in the center of the Game of Thrones network. The rest of the characters revolve around the central cluster. 
+
+## Network Description 
+  The network visualization is not particularly helpful since there are so many nodes and edges entangled together. Mathematically, there is a way of describing a node's characteristics of the network. A common goal in network analysis is to identify "central" nodes in a network. The central nodes may be passing important information, or are connected to many other nodes, or in vital positions where removing them would change the network structure. 
+  
+### Degree Centrality
+Degree  is simplest of the methods, it measures the number of connections between a node has to all other nodes. This measure shows the number of direct connections each node has. 
+```{r}
+sort(degree(got_net,v=V(got_net)))
+```
+From the output shown above, Tyrion has the largest degree, indicating he has the most ties with the rest of the characters. 
+
+### Closeness Centrality
+Closeness centrality is an evaluation of the proximity of a node to all other nodes in a network, not only the nodes to which it is directly connected. It is calculated based on average geodesic distance. Also, closeness centraliy measures how easily other vertices can be reached from it or vice versa. 
+
+```{r}
+sort(closeness(got_net,mode="all",weight=NA,normalized=F))
+```
+  As seen above, the range of closeness centralities are very small. For all the nodes, their closeness centralities are not far different from each other as well. The resultes indicate that all the nodes are closely connected with each other. Among those nodes, Illyrio has the smallest value of 0.0021 meaning he is in a very central position, and able to reach everybody quickly. 
+  
+### Betweenness Centrality
+  Betweenness centrality measures the number of times a node lies on the shortest path between other nodes. It shows which nodes are "bridges" between nodes in a network. This is calculated by identifying all the shortest paths and counting number of times each node falls on one.  
+```{r}
+sort(betweenness(got_net),decreasing=T)
+```
+
+## Community Detection 
+```{r}
+library(anocva)
+groups<-cluster_walktrap(got_net)
+mem<-membership(groups)
+table(mem)
+```
+
+```{r,fig.align="center",fig.asp=1}
+plot(groups,got_net)
+```
+
+# Results 
+  According to the centrality analysis, Tyrion is shown to be an important node in the Game of Throne social network from the result output. Illyrio has the small closeness centrality measure. 
+    As shown in the above plot and layout of the network, nodes and edges are closely entangled in the network and it is hard to clearly identify clusters. The data itself did not specify household or geographical locations those characters belong to. Therefore, community detection is useful in this dataset. As shown above, there are 7 membership groups. Group 2 has the most people. From the plot above, group 2 is in the center, connecting to different outer clusters. 
+
+# Conclusion 
+  This result suggests that Tyrion has the most links to other people. At the same time, Tyrion lies most times on the shortest path between other nodes. On the other hand, Illyrio's small closeness measure indicates he is close to other nodes. Yet, since this is a highly and tightly connected network, all the characters are closely linked. As seen in the above output,all the nodes' scores are very small and not that much different from each other
+  It is not surprising that Tyrion has the highest degree and betweenness centrality score. In the original story line, he is knowledgeable person with extensive information of the realm, of the people, and of the culture, history, etc. As shown in the centrality measures, Tyrion is a particularly important node who could influence and perhaps has the authority over the network flow.
+  Since this dataset does not contain any information other than names and links between these names, community detection is helpful. Ideally.groups of nodes with some similarity among them are categorized within a community. Clusters of tightly connected groups of nodes are grouped in the same community. According to the plot, 7 communities are detected. Theses nodes are grouped by proximity from other nodes. For instance, nodes in the red circle would not be in the same community with nodes in the yellow circle. With Tyrion being the most connected character, all the characters in the Game of Thrones series are divided into 7 communities. 
+   Without prior Game of Thrones knowledge, it is beneficial to apply community detection techniques and see how communities are determined within the network. Additionally, the different degree algorithms can easily show the connectivity for a single person within a network. The degree and betweenness centrality identification can further enable one's understanding of the extensive connectivity a person has. 
+  On the other hand, closeness centrality may not be an optimal measure. In a highly connected network, all nodes will have similar score and this phenomenon is also seen in the present analysis. It may be useful to using closeness to find influencers in a single cluster, rather than the whole network. Another limitation is that this dataset does not contain any geographical or household information. It is hard to compare the result from community detection with the real community. 
+
+
+
+
+
+
+
+
+
+
+
+
